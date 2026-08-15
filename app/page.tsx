@@ -1,7 +1,6 @@
 "use client";
 import { supabase } from '@/lib/supabase'
-import image_stack_of_paper__1_ from '@/imports/stack_of_paper__1_.jpeg'
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { ArrowRight, Menu, X, Layers, Zap, Globe, BarChart2 } from "lucide-react";
 import Image from "next/image";
 import paperImage from "./imports/stack_of_paper__1_.jpeg";
@@ -13,63 +12,33 @@ const FEATURES = [
   {
     icon: Layers,
     label: "Strategy",
-    description:
-      "We map your materials first, we dont give results based on assumptions.",
+    description: "We map your materials first, we dont give results based on assumptions.",
   },
   {
     icon: Zap,
     label: "Execution",
-    description:
-      "Our AI specifically analyze and see potential pitfalls in your study.",
+    description: "Our AI specifically analyze and see potential pitfalls in your study.",
   },
   {
     icon: Globe,
     label: "Reach",
-    description:
-      "Built for the open web — accessible, performant, and ready for wherever you live.",
+    description: "Built for the open web — accessible, performant, and ready for wherever you live.",
   },
   {
     icon: BarChart2,
     label: "Clarity",
-    description:
-      "Data that tells a story. We surface what matters and ignore the noise.",
+    description: "Data that tells a story. We surface what matters and ignore the noise.",
   },
-];
-
-const WORK = [
-  {
-    id: "01",
-    title: "",
-    category: "",
-    year: "",
-    img: "",
-  },
-  {
-    id: "03",
-    title: "",
-    category: "",
-    year: "",
-    img: "",
-  },
-  {
-    id: "02",
-    title: "",
-    category: "",
-    year: "",
-    img: "",
-  }
 ];
 
 const TESTIMONIALS = [
   {
-    quote:
-      "I always study what i need to study, leave the ones i already mastered behind",
+    quote: "I always study what i need to study, leave the ones i already mastered behind",
     name: "Nathan Gefania",
     role: "Creator",
   },
   {
-    quote:
-      "The secret of getting ahead is getting started.",
+    quote: "The secret of getting ahead is getting started.",
     name: "Mark Twain",
   },
 ];
@@ -77,91 +46,117 @@ const TESTIMONIALS = [
 export default function App() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [activeTestimonial, setActiveTestimonial] = useState(0);
+  const [workSessions, setWorkSessions] = useState<any[]>([]);
+  const [loadingSessions, setLoadingSessions] = useState(true);
+
+  // Fetch recent notes/sessions from Supabase on load
+  useEffect(() => {
+    async function fetchRecentSessions() {
+      const { data, error } = await supabase
+        .from('notes') // Change this to your actual table name if different (e.g. 'sessions')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(3);
+
+      if (error) {
+        console.error('Error fetching sessions:', error);
+      } else if (data && data.length > 0) {
+        setWorkSessions(data);
+      } else {
+        // Fallback mock data if the table is currently empty so the UI looks nice
+        setWorkSessions([
+          { id: "1", title: "My First Study Note", category: "Exam Prep", content: "Getting started with Supabase data." },
+          { id: "2", title: "Design System Review", category: "Visual Design", content: "Notes on typography and spacing grids." },
+          { id: "3", title: "AI Prompt Engineering", category: "Groq Integration", content: "Optimizing token outputs for speed." },
+        ]);
+      }
+      setLoadingSessions(false);
+    }
+
+    fetchRecentSessions();
+  }, []);
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
     window.location.href = '/'; 
   };
+
   return (
     <div
       className="min-h-screen bg-background text-foreground"
       style={{ fontFamily: "'DM Sans', sans-serif" }}
     >
       {/* Nav */}
-<header className="fixed top-0 inset-x-0 z-50 border-b border-border bg-background/90 backdrop-blur-sm">
-  <div className="max-w-7xl mx-auto px-6 lg:px-12 flex items-center justify-between h-16">
-    <span
-      className="text-lg font-semibold tracking-tight"
-      style={{ fontFamily: "'Playfair Display', serif" }}
-    >
-      notetoself
-    </span>
+      <header className="fixed top-0 inset-x-0 z-50 border-b border-border bg-background/90 backdrop-blur-sm">
+        <div className="max-w-7xl mx-auto px-6 lg:px-12 flex items-center justify-between h-16">
+          <span
+            className="text-lg font-semibold tracking-tight"
+            style={{ fontFamily: "'Playfair Display', serif" }}
+          >
+            notetoself
+          </span>
 
-    {/* Desktop nav */}
-    <nav className="hidden md:flex items-center gap-8">
-      {NAV_LINKS.map((link) => (
-        <a
-          key={link}
-          href="#"
-          className="text-sm text-muted-foreground hover:text-foreground transition-colors duration-150"
-        >
-          {link}
-        </a>
-      ))}
-    </nav>
+          <nav className="hidden md:flex items-center gap-8">
+            {NAV_LINKS.map((link) => (
+              <a
+                key={link}
+                href="#"
+                className="text-sm text-muted-foreground hover:text-foreground transition-colors duration-150"
+              >
+                {link}
+              </a>
+            ))}
+          </nav>
 
-    {/* Desktop Action Buttons */}
-    <div className="hidden md:flex items-center gap-6">
-      <Link href="/login" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
-        Login
-      </Link>
-      <Link
-        href="/signup"
-        className="inline-flex items-center gap-2 text-sm bg-primary text-primary-foreground px-5 py-2 rounded hover:opacity-90 transition-opacity"
-      >
-        Sign Up <ArrowRight size={14} />
-      </Link>
-      <button 
-        onClick={handleLogout}
-        className="text-sm border-l pl-6 text-muted-foreground hover:text-foreground"
-      >
-        Logout
-      </button>
-    </div>
+          <div className="hidden md:flex items-center gap-6">
+            <Link href="/login" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
+              Login
+            </Link>
+            <Link
+              href="/signup"
+              className="inline-flex items-center gap-2 text-sm bg-primary text-primary-foreground px-5 py-2 rounded hover:opacity-90 transition-opacity"
+            >
+              Sign Up <ArrowRight size={14} />
+            </Link>
+            <button 
+              onClick={handleLogout}
+              className="text-sm border-l pl-6 text-muted-foreground hover:text-foreground"
+            >
+              Logout
+            </button>
+          </div>
 
-    {/* Mobile toggle */}
-    <button
-      className="md:hidden p-2"
-      onClick={() => setMenuOpen(!menuOpen)}
-      aria-label="Toggle menu"
-    >
-      {menuOpen ? <X size={20} /> : <Menu size={20} />}
-    </button>
-  </div>
+          <button
+            className="md:hidden p-2"
+            onClick={() => setMenuOpen(!menuOpen)}
+            aria-label="Toggle menu"
+          >
+            {menuOpen ? <X size={20} /> : <Menu size={20} />}
+          </button>
+        </div>
 
-  {/* Mobile menu */}
-  {menuOpen && (
-    <div className="md:hidden bg-background border-t border-border px-6 py-6 flex flex-col gap-4">
-      {NAV_LINKS.map((link) => (
-        <a key={link} href="#" className="text-base text-foreground">
-          {link}
-        </a>
-      ))}
-      <Link href="/login" className="text-base text-muted-foreground mt-2">
-        Login
-      </Link>
-      <Link
-        href="/signup"
-        className="inline-flex items-center gap-2 text-sm bg-primary text-primary-foreground px-5 py-2.5 rounded w-fit"
-      >
-        Sign Up <ArrowRight size={14} />
-      </Link>
-      <button onClick={handleLogout} className="text-base text-left text-muted-foreground">
-        Logout
-      </button>
-    </div>
-  )}
-</header>
+        {menuOpen && (
+          <div className="md:hidden bg-background border-t border-border px-6 py-6 flex flex-col gap-4">
+            {NAV_LINKS.map((link) => (
+              <a key={link} href="#" className="text-base text-foreground">
+                {link}
+              </a>
+            ))}
+            <Link href="/login" className="text-base text-muted-foreground mt-2">
+              Login
+            </Link>
+            <Link
+              href="/signup"
+              className="inline-flex items-center gap-2 text-sm bg-primary text-primary-foreground px-5 py-2.5 rounded w-fit"
+            >
+              Sign Up <ArrowRight size={14} />
+            </Link>
+            <button onClick={handleLogout} className="text-base text-left text-muted-foreground">
+              Logout
+            </button>
+          </div>
+        )}
+      </header>
 
       {/* Hero */}
       <section className="pt-32 pb-24 lg:pt-44 lg:pb-32 max-w-7xl mx-auto px-6 lg:px-12">
@@ -265,7 +260,7 @@ export default function App() {
         </div>
       </section>
 
-      {/* Selected work */}
+      {/* Selected work / Recent Sessions */}
       <section className="max-w-7xl mx-auto px-6 lg:px-12 mb-24 lg:mb-36">
         <div className="flex items-end justify-between mb-12">
           <div>
@@ -288,37 +283,36 @@ export default function App() {
           </a>
         </div>
 
-        <div className="grid md:grid-cols-3 gap-6">
-          {WORK.map((item) => (
-            <a
-              href="#"
-              key={item.id}
-              className="group block"
-            >
-              <div className="relative overflow-hidden rounded bg-secondary mb-4 aspect-[4/3]">
-                <img
-                  src={item.img}
-                  alt={item.title}
-                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                />
-                <div className="absolute inset-0 bg-foreground/0 group-hover:bg-foreground/10 transition-colors duration-300" />
-              </div>
-              <div className="flex items-start justify-between">
-                <div>
-                  
-                  <h3
-                    className="text-lg font-semibold leading-tight"
-                    style={{ fontFamily: "'Playfair Display', serif" }}
-                  >
-                    {item.title}
-                  </h3>
-                  <p className="text-sm text-muted-foreground mt-1">{item.category}</p>
+        {loadingSessions ? (
+          <p className="text-muted-foreground">Loading sessions...</p>
+        ) : (
+          <div className="grid md:grid-cols-3 gap-6">
+            {workSessions.map((item, index) => (
+              <a
+                href="#"
+                key={item.id || index}
+                className="group block border border-border/60 rounded-lg p-6 bg-card/40 hover:bg-card transition-colors"
+              >
+                <div className="flex items-start justify-between">
+                  <div>
+                    <span className="text-xs font-mono text-muted-foreground uppercase tracking-wider">
+                      Session 0{index + 1}
+                    </span>
+                    <h3
+                      className="text-xl font-semibold leading-tight mt-2 mb-2"
+                      style={{ fontFamily: "'Playfair Display', serif" }}
+                    >
+                      {item.title || item.name || "Untitled Session"}
+                    </h3>
+                    <p className="text-sm text-muted-foreground line-clamp-2">
+                      {item.content || item.description || "No description provided yet."}
+                    </p>
+                  </div>
                 </div>
-                
-              </div>
-            </a>
-          ))}
-        </div>
+              </a>
+            ))}
+          </div>
+        )}
       </section>
 
       {/* Testimonials */}
