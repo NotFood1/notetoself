@@ -1,133 +1,164 @@
 "use client";
-import { supabase } from '@/lib/supabase'
+
+import { supabase } from "@/lib/supabase";
 import { useState, useEffect } from "react";
-import { ArrowRight, Menu, X, Layers, Zap, Globe, BarChart2 } from "lucide-react";
+import { ArrowRight, Menu, X, Layers, Zap, Globe, BarChart2, BookOpen, MessageSquare, Clock } from "lucide-react";
 import Image from "next/image";
 import paperImage from "./imports/stack_of_paper__1_.jpeg";
 import Link from "next/link";
 
-const NAV_LINKS = ["Home", "Dashboard", "Materials", "ChatBot"];
+const NAV_LINKS = [
+  { name: "Features", href: "#features" },
+  { name: "Materials", href: "/dashboard/materials" },
+  { name: "AI Assistant", href: "/dashboard/chat" },
+  { name: "Analytics", href: "/dashboard/analytics" },
+];
 
 const FEATURES = [
   {
     icon: Layers,
-    label: "Strategy",
-    description: "We map your materials first, we dont give results based on assumptions.",
+    label: "Material Mapping",
+    description: "Upload and map your study materials first. No generic advice based on assumptions.",
   },
   {
     icon: Zap,
-    label: "Execution",
-    description: "Our AI specifically analyze and see potential pitfalls in your study.",
+    label: "Pitfall Detection",
+    description: "Groq-powered AI analyzes your notes to identify knowledge gaps and misconceptions.",
   },
   {
     icon: Globe,
-    label: "Reach",
-    description: "Built for the open web — accessible, performant, and ready for wherever you live.",
+    label: "Active Recall",
+    description: "Instantly turn raw notes and lecture summaries into high-yield flashcard decks.",
   },
   {
     icon: BarChart2,
-    label: "Clarity",
-    description: "Data that tells a story. We surface what matters and ignore the noise.",
+    label: "Habit Clarity",
+    description: "Track focus minutes and study streaks with our built-in Pomodoro workflow.",
   },
 ];
 
 const TESTIMONIALS = [
   {
-    quote: "I always study what i need to study, leave the ones i already mastered behind",
+    quote: "I always study what I need to study, leaving behind what I've already mastered.",
     name: "Nathan Gefania",
-    role: "Creator",
+    role: "Creator & Student",
   },
   {
     quote: "The secret of getting ahead is getting started.",
     name: "Mark Twain",
+    role: "Author",
   },
 ];
 
-export default function App() {
+export default function LandingPage() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [activeTestimonial, setActiveTestimonial] = useState(0);
-  const [workSessions, setWorkSessions] = useState<any[]>([]);
-  const [loadingSessions, setLoadingSessions] = useState(true);
+  const [user, setUser] = useState<any>(null);
+  const [recentMaterials, setRecentMaterials] = useState<any[]>([]);
+  const [loadingMaterials, setLoadingMaterials] = useState(true);
 
-  // Fetch recent notes/sessions from Supabase on load
+  // Check auth state and fetch preview materials
   useEffect(() => {
-    async function fetchRecentSessions() {
-      const { data, error } = await supabase
-        .from('notes') // Change this to your actual table name if different (e.g. 'sessions')
-        .select('*')
-        .order('created_at', { ascending: false })
+    async function initPage() {
+      // 1. Check user session
+      const { data: { session } } = await supabase.auth.getSession();
+      setUser(session?.user ?? null);
+
+      // 2. Fetch recent public/user materials or fallback mock
+      const { data } = await supabase
+        .from("materials")
+        .select("*")
+        .order("created_at", { ascending: false })
         .limit(3);
 
-      if (error) {
-        console.error('Error fetching sessions:', error);
-      } else if (data && data.length > 0) {
-        setWorkSessions(data);
+      if (data && data.length > 0) {
+        setRecentMaterials(data);
       } else {
-        // Fallback mock data if the table is currently empty so the UI looks nice
-        setWorkSessions([
-          { id: "1", title: "My First Study Note", category: "Exam Prep", content: "Getting started with Supabase data." },
-          { id: "2", title: "Design System Review", category: "Visual Design", content: "Notes on typography and spacing grids." },
-          { id: "3", title: "AI Prompt Engineering", category: "Groq Integration", content: "Optimizing token outputs for speed." },
+        setRecentMaterials([
+          { id: "1", title: "Cellular Respiration & ATP", category: "Biology", notes: "Glycolysis, Krebs cycle, and electron transport chain breakdown." },
+          { id: "2", title: "Microeconomics Price Elasticity", category: "Economics", notes: "Formulas for elasticity of demand, supply, and cross-price." },
+          { id: "3", title: "AI Prompt Engineering & Tokenomics", category: "Computer Science", notes: "Optimizing Groq Llama 3 context windows for low latency." },
         ]);
       }
-      setLoadingSessions(false);
+      setLoadingMaterials(false);
     }
 
-    fetchRecentSessions();
+    initPage();
+
+    const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null);
+    });
+
+    return () => {
+      authListener.subscription.unsubscribe();
+    };
   }, []);
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
-    window.location.href = '/'; 
+    setUser(null);
   };
 
   return (
-    <div
-      className="min-h-screen bg-background text-foreground"
-      style={{ fontFamily: "'DM Sans', sans-serif" }}
-    >
-      {/* Nav */}
-      <header className="fixed top-0 inset-x-0 z-50 border-b border-border bg-background/90 backdrop-blur-sm">
+    <div className="min-h-screen bg-background text-foreground font-sans">
+      {/* Header / Nav */}
+      <header className="fixed top-0 inset-x-0 z-50 border-b border-border bg-background/90 backdrop-blur-md">
         <div className="max-w-7xl mx-auto px-6 lg:px-12 flex items-center justify-between h-16">
-          <span
-            className="text-lg font-semibold tracking-tight"
-            style={{ fontFamily: "'Playfair Display', serif" }}
+          <Link
+            href="/"
+            className="text-xl font-semibold tracking-tight font-serif text-foreground hover:opacity-80 transition-opacity"
           >
             notetoself
-          </span>
+          </Link>
 
           <nav className="hidden md:flex items-center gap-8">
             {NAV_LINKS.map((link) => (
-              <a
-                key={link}
-                href="#"
+              <Link
+                key={link.name}
+                href={link.href}
                 className="text-sm text-muted-foreground hover:text-foreground transition-colors duration-150"
               >
-                {link}
-              </a>
+                {link.name}
+              </Link>
             ))}
           </nav>
 
-          <div className="hidden md:flex items-center gap-6">
-            <Link href="/login" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
-              Login
-            </Link>
-            <Link
-              href="/signup"
-              className="inline-flex items-center gap-2 text-sm bg-primary text-primary-foreground px-5 py-2 rounded hover:opacity-90 transition-opacity"
-            >
-              Sign Up <ArrowRight size={14} />
-            </Link>
-            <button 
-              onClick={handleLogout}
-              className="text-sm border-l pl-6 text-muted-foreground hover:text-foreground"
-            >
-              Logout
-            </button>
+          <div className="hidden md:flex items-center gap-4">
+            {user ? (
+              <>
+                <Link
+                  href="/dashboard"
+                  className="text-sm font-medium text-foreground hover:text-accent transition-colors"
+                >
+                  Dashboard
+                </Link>
+                <button
+                  onClick={handleLogout}
+                  className="text-sm text-muted-foreground hover:text-foreground border-l border-border pl-4 transition-colors"
+                >
+                  Logout
+                </button>
+              </>
+            ) : (
+              <>
+                <Link
+                  href="/login"
+                  className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  Login
+                </Link>
+                <Link
+                  href="/signup"
+                  className="inline-flex items-center gap-2 text-sm bg-primary text-primary-foreground px-4 py-2 rounded font-medium hover:opacity-90 transition-opacity"
+                >
+                  Sign Up <ArrowRight size={14} />
+                </Link>
+              </>
+            )}
           </div>
 
           <button
-            className="md:hidden p-2"
+            className="md:hidden p-2 text-foreground"
             onClick={() => setMenuOpen(!menuOpen)}
             aria-label="Toggle menu"
           >
@@ -135,57 +166,86 @@ export default function App() {
           </button>
         </div>
 
+        {/* Mobile menu dropdown */}
         {menuOpen && (
           <div className="md:hidden bg-background border-t border-border px-6 py-6 flex flex-col gap-4">
             {NAV_LINKS.map((link) => (
-              <a key={link} href="#" className="text-base text-foreground">
-                {link}
-              </a>
+              <Link
+                key={link.name}
+                href={link.href}
+                onClick={() => setMenuOpen(false)}
+                className="text-base text-foreground"
+              >
+                {link.name}
+              </Link>
             ))}
-            <Link href="/login" className="text-base text-muted-foreground mt-2">
-              Login
-            </Link>
-            <Link
-              href="/signup"
-              className="inline-flex items-center gap-2 text-sm bg-primary text-primary-foreground px-5 py-2.5 rounded w-fit"
-            >
-              Sign Up <ArrowRight size={14} />
-            </Link>
-            <button onClick={handleLogout} className="text-base text-left text-muted-foreground">
-              Logout
-            </button>
+            <div className="border-t border-border pt-4 flex flex-col gap-3">
+              {user ? (
+                <>
+                  <Link
+                    href="/dashboard"
+                    onClick={() => setMenuOpen(false)}
+                    className="text-base font-medium text-foreground"
+                  >
+                    Go to Dashboard
+                  </Link>
+                  <button
+                    onClick={() => {
+                      handleLogout();
+                      setMenuOpen(false);
+                    }}
+                    className="text-base text-left text-muted-foreground"
+                  >
+                    Logout
+                  </button>
+                </>
+              ) : (
+                <>
+                  <Link
+                    href="/login"
+                    onClick={() => setMenuOpen(false)}
+                    className="text-base text-muted-foreground"
+                  >
+                    Login
+                  </Link>
+                  <Link
+                    href="/signup"
+                    onClick={() => setMenuOpen(false)}
+                    className="inline-flex items-center justify-center gap-2 text-sm bg-primary text-primary-foreground px-4 py-2.5 rounded font-medium"
+                  >
+                    Sign Up <ArrowRight size={14} />
+                  </Link>
+                </>
+              )}
+            </div>
           </div>
         )}
       </header>
 
       {/* Hero */}
-      <section className="pt-32 pb-24 lg:pt-44 lg:pb-32 max-w-7xl mx-auto px-6 lg:px-12">
+      <section className="pt-32 pb-20 lg:pt-44 lg:pb-28 max-w-7xl mx-auto px-6 lg:px-12">
         <div className="grid lg:grid-cols-[1fr_auto] gap-12 items-end">
           <div>
-            <p
-              className="text-xs tracking-widest uppercase text-muted-foreground mb-6"
-              style={{ fontFamily: "'DM Mono', monospace" }}
-            >
-              AI-Powered Study Platform
+            <p className="text-xs tracking-widest uppercase text-muted-foreground mb-6 font-mono">
+              AI-Powered Focused Study System
             </p>
-            <h1
-              className="text-5xl md:text-7xl lg:text-8xl font-semibold leading-[1.05] tracking-tight mb-8 text-[#3131d4]"
-              style={{ fontFamily: "'Playfair Display', serif" }}
-            >Study smarter,<br />not <em className="not-italic text-accent">harder.</em></h1>
+            <h1 className="text-5xl md:text-7xl lg:text-8xl font-semibold leading-[1.05] tracking-tight mb-8 font-serif">
+              Study smarter,<br />
+              not <em className="not-italic text-accent">harder.</em>
+            </h1>
             <p className="text-lg text-muted-foreground max-w-xl leading-relaxed mb-10">
-              Track your study sessions, log your progress, and let our AI
-              analyze your habits — then turn that data into personalized
-              insights that help you learn faster and retain more.
+              Track study sessions, organize materials, and let our Groq-powered AI
+              analyze your habits to turn raw notes into active recall insights.
             </p>
             <div className="flex flex-wrap gap-4">
               <Link
-                href="/signup"
+                href={user ? "/dashboard" : "/signup"}
                 className="inline-flex items-center gap-2 bg-primary text-primary-foreground px-7 py-3 rounded text-sm font-medium hover:opacity-90 transition-opacity"
               >
-                Start a session <ArrowRight size={15} />
+                {user ? "Open Dashboard" : "Start studying for free"} <ArrowRight size={15} />
               </Link>
               <Link
-                href="#"
+                href="#features"
                 className="inline-flex items-center gap-2 border border-border text-foreground px-7 py-3 rounded text-sm font-medium hover:bg-secondary transition-colors"
               >
                 See how it works
@@ -193,13 +253,9 @@ export default function App() {
             </div>
           </div>
 
-          <div className="hidden lg:flex flex-col gap-3 text-right pb-2">
-            {["Student Personalized work", "Indie Developed", "For You"].map((stat) => (
-              <span
-                key={stat}
-                className="text-xs tracking-widest uppercase text-muted-foreground"
-                style={{ fontFamily: "'DM Mono', monospace" }}
-              >
+          <div className="hidden lg:flex flex-col gap-3 text-right pb-2 font-mono">
+            {["Personalized Notes", "Groq AI Speed", "Active Recall", "Built for Students"].map((stat) => (
+              <span key={stat} className="text-xs tracking-widest uppercase text-muted-foreground">
                 {stat}
               </span>
             ))}
@@ -207,48 +263,42 @@ export default function App() {
         </div>
       </section>
 
-      {/* Hero image strip */}
+      {/* Hero image banner */}
       <div className="max-w-7xl mx-auto px-6 lg:px-12 mb-24">
-        <div className="w-full h-64 md:h-96 lg:h-[480px] rounded overflow-hidden bg-secondary">
-          <img
-            src={paperImage.src}
-            alt="Studio workspace"
-            className="w-full h-full object-cover"
+        <div className="relative w-full h-64 md:h-96 lg:h-[460px] rounded-lg overflow-hidden border border-border bg-secondary">
+          <Image
+            src={paperImage}
+            alt="Studio study workspace"
+            fill
+            priority
+            sizes="(max-width: 768px) 100vw, 1200px"
+            className="object-cover"
           />
         </div>
       </div>
 
-      {/* Features */}
-      <section className="max-w-7xl mx-auto px-6 lg:px-12 mb-24 lg:mb-36">
+      {/* Features Section */}
+      <section id="features" className="max-w-7xl mx-auto px-6 lg:px-12 mb-24 lg:mb-36 scroll-mt-24">
         <div className="grid lg:grid-cols-[280px_1fr] gap-16">
           <div>
-            <p
-              className="text-xs tracking-widest uppercase text-muted-foreground mb-4"
-              style={{ fontFamily: "'DM Mono', monospace" }}
-            >
-              What we do
+            <p className="text-xs tracking-widest uppercase text-muted-foreground mb-4 font-mono">
+              Core Method
             </p>
-            <h2
-              className="text-3xl lg:text-4xl font-semibold leading-tight"
-              style={{ fontFamily: "'Playfair Display', serif" }}
-            >
+            <h2 className="text-3xl lg:text-4xl font-semibold leading-tight font-serif">
               Built on four disciplines
             </h2>
           </div>
-          <div className="grid sm:grid-cols-2 gap-px bg-border">
+          <div className="grid sm:grid-cols-2 gap-px bg-border border border-border rounded-lg overflow-hidden">
             {FEATURES.map(({ icon: Icon, label, description }) => (
               <div
                 key={label}
-                className="bg-background p-8 hover:bg-card transition-colors group"
+                className="bg-card p-8 hover:bg-muted/50 transition-colors group"
               >
                 <Icon
                   size={22}
                   className="mb-5 text-accent group-hover:scale-110 transition-transform"
                 />
-                <h3
-                  className="text-lg font-semibold mb-2"
-                  style={{ fontFamily: "'Playfair Display', serif" }}
-                >
+                <h3 className="text-lg font-semibold mb-2 font-serif text-foreground">
                   {label}
                 </h3>
                 <p className="text-sm text-muted-foreground leading-relaxed">
@@ -260,56 +310,49 @@ export default function App() {
         </div>
       </section>
 
-      {/* Selected work / Recent Sessions */}
+      {/* Selected work / Recent Materials */}
       <section className="max-w-7xl mx-auto px-6 lg:px-12 mb-24 lg:mb-36">
         <div className="flex items-end justify-between mb-12">
           <div>
-            <p
-              className="text-xs tracking-widest uppercase text-muted-foreground mb-3"
-              style={{ fontFamily: "'DM Mono', monospace" }}
-            >
-              Selected work
+            <p className="text-xs tracking-widest uppercase text-muted-foreground mb-3 font-mono">
+              Materials Hub Preview
             </p>
-            <h2
-              className="text-3xl lg:text-4xl font-semibold"
-              style={{ fontFamily: "'Playfair Display', serif" }}
-            >Recent Sessions</h2>
+            <h2 className="text-3xl lg:text-4xl font-semibold font-serif">
+              Structured Study Decks
+            </h2>
           </div>
-          <a
-            href="#"
+          <Link
+            href="/dashboard/materials"
             className="hidden md:inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
           >
-            View all <ArrowRight size={14} />
-          </a>
+            Open Materials Hub <ArrowRight size={14} />
+          </Link>
         </div>
 
-        {loadingSessions ? (
-          <p className="text-muted-foreground">Loading sessions...</p>
+        {loadingMaterials ? (
+          <p className="text-muted-foreground">Loading preview...</p>
         ) : (
           <div className="grid md:grid-cols-3 gap-6">
-            {workSessions.map((item, index) => (
-              <a
-                href="#"
+            {recentMaterials.map((item, index) => (
+              <Link
+                href="/dashboard/materials"
                 key={item.id || index}
-                className="group block border border-border/60 rounded-lg p-6 bg-card/40 hover:bg-card transition-colors"
+                className="group block border border-border rounded-lg p-6 bg-card hover:border-primary/50 transition-colors"
               >
                 <div className="flex items-start justify-between">
                   <div>
-                    <span className="text-xs font-mono text-muted-foreground uppercase tracking-wider">
-                      Session 0{index + 1}
+                    <span className="text-xs font-mono text-accent uppercase tracking-wider">
+                      {item.category || `Material 0${index + 1}`}
                     </span>
-                    <h3
-                      className="text-xl font-semibold leading-tight mt-2 mb-2"
-                      style={{ fontFamily: "'Playfair Display', serif" }}
-                    >
-                      {item.title || item.name || "Untitled Session"}
+                    <h3 className="text-xl font-semibold leading-tight mt-2 mb-2 font-serif text-foreground group-hover:text-primary transition-colors">
+                      {item.title || "Untitled Note"}
                     </h3>
-                    <p className="text-sm text-muted-foreground line-clamp-2">
-                      {item.content || item.description || "No description provided yet."}
+                    <p className="text-sm text-muted-foreground line-clamp-2 leading-relaxed">
+                      {item.notes || "Ready for AI analysis and active recall."}
                     </p>
                   </div>
                 </div>
-              </a>
+              </Link>
             ))}
           </div>
         )}
@@ -320,14 +363,7 @@ export default function App() {
         <div className="max-w-7xl mx-auto px-6 lg:px-12">
           <div className="grid lg:grid-cols-[1fr_280px] gap-12 items-start">
             <div>
-              <p
-                className="text-xs tracking-widest uppercase opacity-50 mb-10"
-                style={{ fontFamily: "'DM Mono', monospace" }}
-              >&nbsp;&nbsp;</p>
-              <blockquote
-                className="text-2xl md:text-3xl lg:text-4xl font-light leading-snug mb-10"
-                style={{ fontFamily: "'Playfair Display', serif" }}
-              >
+              <blockquote className="text-2xl md:text-3xl lg:text-4xl font-light leading-snug mb-10 font-serif">
                 &ldquo;{TESTIMONIALS[activeTestimonial].quote}&rdquo;
               </blockquote>
               <div>
@@ -341,9 +377,9 @@ export default function App() {
                 <button
                   key={i}
                   onClick={() => setActiveTestimonial(i)}
-                  className={`text-left px-4 py-3 rounded text-sm transition-colors ${
+                  className={`text-left px-4 py-3 rounded text-sm transition-colors cursor-pointer ${
                     activeTestimonial === i
-                      ? "bg-primary-foreground/10 text-primary-foreground"
+                      ? "bg-primary-foreground/15 text-primary-foreground font-medium"
                       : "text-primary-foreground/50 hover:text-primary-foreground/80"
                   }`}
                 >
@@ -357,22 +393,18 @@ export default function App() {
 
       {/* CTA */}
       <section className="max-w-7xl mx-auto px-6 lg:px-12 mb-24 lg:mb-36">
-        <div className="border border-border rounded p-12 lg:p-20 text-center">
-          <p
-            className="text-xs tracking-widest uppercase text-muted-foreground mb-6"
-            style={{ fontFamily: "'DM Mono', monospace" }}
-          >
+        <div className="border border-border rounded-lg p-12 lg:p-20 text-center bg-card">
+          <p className="text-xs tracking-widest uppercase text-muted-foreground mb-6 font-mono">
             Ready to begin?
           </p>
-          <h2
-            className="text-4xl md:text-5xl lg:text-6xl font-semibold leading-tight mb-8 max-w-2xl mx-auto"
-            style={{ fontFamily: "'Playfair Display', serif" }}
-          >You're not bad, you just studied wrong</h2>
+          <h2 className="text-4xl md:text-5xl lg:text-6xl font-semibold leading-tight mb-8 max-w-2xl mx-auto font-serif">
+            You're not behind — you just studied without feedback.
+          </h2>
           <Link
-            href="/signup"
+            href={user ? "/dashboard" : "/signup"}
             className="inline-flex items-center gap-2 bg-primary text-primary-foreground px-8 py-4 rounded text-sm font-medium hover:opacity-90 transition-opacity"
           >
-            Start a conversation <ArrowRight size={15} />
+            {user ? "Go to Dashboard" : "Start your first session"} <ArrowRight size={15} />
           </Link>
         </div>
       </section>
@@ -380,28 +412,22 @@ export default function App() {
       {/* Footer */}
       <footer className="border-t border-border max-w-7xl mx-auto px-6 lg:px-12 py-10">
         <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
-          <span
-            className="text-lg font-semibold"
-            style={{ fontFamily: "'Playfair Display', serif" }}
-          >
+          <span className="text-lg font-semibold font-serif">
             notetoself
           </span>
           <nav className="flex flex-wrap gap-6">
             {NAV_LINKS.map((link) => (
-              <a
-                key={link}
-                href="#"
+              <Link
+                key={link.name}
+                href={link.href}
                 className="text-sm text-muted-foreground hover:text-foreground transition-colors"
               >
-                {link}
-              </a>
+                {link.name}
+              </Link>
             ))}
           </nav>
-          <p
-            className="text-xs text-muted-foreground"
-            style={{ fontFamily: "'DM Mono', monospace" }}
-          >
-            © 2026 notetoself Studio
+          <p className="text-xs text-muted-foreground font-mono">
+            © {new Date().getFullYear()} notetoself Studio
           </p>
         </div>
       </footer>
