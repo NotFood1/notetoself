@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { Groq } from 'groq-sdk'
+import { supabase } from '@/lib/supabase'
 
 const groq = new Groq({
   apiKey: process.env.GROQ_API_KEY,
@@ -10,13 +11,32 @@ const MAX_FLASHCARD_TOKENS = 1000
 
 export async function POST(req: Request) {
   try {
+    // 1. Auth Verification: Require valid Supabase Bearer token
+    const authHeader = req.headers.get('Authorization')
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return NextResponse.json(
+        { error: 'Unauthorized: Please log in to generate flashcards.' },
+        { status: 401 }
+      )
+    }
+
+    const token = authHeader.replace('Bearer ', '').trim()
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token)
+
+    if (authError || !user) {
+      return NextResponse.json(
+        { error: 'Unauthorized: Session expired or invalid. Please log in again.' },
+        { status: 401 }
+      )
+    }
+
     const { title, category, notes } = await req.json()
 
     if (!title && !notes) {
       return NextResponse.json({ error: 'Title or notes are required' }, { status: 400 })
     }
 
-    // Token Protection: Truncate notes if user pasted an entire textbook chapter
+    // 2. Token Protection: Truncate notes if user pasted an entire textbook chapter
     const safeNotes = notes
       ? notes.length > MAX_FLASHCARD_NOTE_CHARS
         ? `${notes.slice(0, MAX_FLASHCARD_NOTE_CHARS)}... [truncated]`

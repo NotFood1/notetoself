@@ -163,9 +163,20 @@ export default function MaterialsPage() {
     setGeneratingCards(true)
 
     try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) {
+        alert('Please sign in to generate flashcards.')
+        setActiveMaterialForFlashcards(null)
+        setGeneratingCards(false)
+        return
+      }
+
       const res = await fetch('/api/flashcards', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
         body: JSON.stringify({
           title: material.title,
           category: material.category,

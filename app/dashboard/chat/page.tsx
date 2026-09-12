@@ -158,9 +158,17 @@ export default function ChatPage() {
     setMessages((prev) => [...prev, { role: 'assistant', content: '' }])
 
     try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) {
+        throw new Error('Please sign in to use the AI Study Copilot.')
+      }
+
       const res = await fetch('/api/chat', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
         body: JSON.stringify({
           messages: updatedMessages,
           materials: materials,

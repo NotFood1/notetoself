@@ -1,4 +1,5 @@
 import { Groq } from 'groq-sdk'
+import { supabase } from '@/lib/supabase'
 
 const groq = new Groq({
   apiKey: process.env.GROQ_API_KEY,
@@ -12,9 +13,28 @@ const MAX_RESPONSE_TOKENS = 1200
 
 export async function POST(req: Request) {
   try {
+    // 1. Auth Verification: Require valid Supabase Bearer token
+    const authHeader = req.headers.get('Authorization')
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return new Response(
+        JSON.stringify({ error: 'Unauthorized: Please log in to use the AI Study Copilot.' }),
+        { status: 401, headers: { 'Content-Type': 'application/json' } }
+      )
+    }
+
+    const token = authHeader.replace('Bearer ', '').trim()
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token)
+
+    if (authError || !user) {
+      return new Response(
+        JSON.stringify({ error: 'Unauthorized: Session expired or invalid. Please sign in again.' }),
+        { status: 401, headers: { 'Content-Type': 'application/json' } }
+      )
+    }
+
     const { messages, materials, mode = 'diagnose' } = await req.json()
 
-    // 1. Token Protection: Cap materials to top 10 and truncate oversized notes
+    // 2. Token Protection: Cap materials to top 10 and truncate oversized notes
     let contextText = ''
     if (materials && materials.length > 0) {
       const boundedMaterials = materials.slice(0, MAX_MATERIALS_IN_CONTEXT)
@@ -30,7 +50,7 @@ export async function POST(req: Request) {
         .join('\n')
     }
 
-    // 2. Token Protection: Cap conversation history to the last 10 messages
+    // 3. Token Protection: Cap conversation history to the last 10 messages
     const boundedMessages = Array.isArray(messages) ? messages.slice(-MAX_CONVERSATION_HISTORY) : []
 
     // Define mode-specific instructions aligned with the core philosophy
@@ -98,7 +118,7 @@ Formatting Rules:
 - Focus on isolating the difficult 20% of the topic that causes most mistakes.`,
     }
 
-    // 3. Token Protection: Send bounded messages and cap max completion tokens
+    // 4. Send bounded messages and cap max completion tokens
     const stream = await groq.chat.completions.create({
       model: 'openai/gpt-oss-120b',
       messages: [systemPrompt, ...boundedMessages],
