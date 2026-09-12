@@ -1,9 +1,10 @@
 'use client'
 
-import { useEffect, useState, useRef, useMemo } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import { useTimer } from '@/context/TimerContext'
 import {
   ArrowLeft,
   Plus,
@@ -27,147 +28,34 @@ interface HabitLog {
   created_at: string
 }
 
-// Web Audio API Focus Chime (plays sound without external audio files)
-function playFocusChime() {
-  try {
-    const AudioCtx = window.AudioContext || (window as any).webkitAudioContext
-    if (!AudioCtx) return
-    const ctx = new AudioCtx()
-
-    const osc1 = ctx.createOscillator()
-    const osc2 = ctx.createOscillator()
-    const gain = ctx.createGain()
-
-    osc1.type = 'sine'
-    osc1.frequency.setValueAtTime(587.33, ctx.currentTime) // D5
-    osc1.frequency.exponentialRampToValueAtTime(880, ctx.currentTime + 0.3) // A5
-
-    osc2.type = 'triangle'
-    osc2.frequency.setValueAtTime(440, ctx.currentTime) // A4
-    osc2.frequency.exponentialRampToValueAtTime(659.25, ctx.currentTime + 0.4) // E5
-
-    gain.gain.setValueAtTime(0.2, ctx.currentTime)
-    gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 1.2)
-
-    osc1.connect(gain)
-    osc2.connect(gain)
-    gain.connect(ctx.destination)
-
-    osc1.start()
-    osc2.start()
-    osc1.stop(ctx.currentTime + 1.2)
-    osc2.stop(ctx.currentTime + 1.2)
-  } catch (err) {
-    console.log('Audio playback prevented by browser policy')
-  }
-}
-
-// Send system notification
-function sendDesktopNotification(topicName?: string) {
-  if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
-    new Notification('⏰ Focus Session Complete!', {
-      body: topicName
-        ? `Great job focusing on "${topicName}"! Take a break or log your notes.`
-        : 'Great job! Your focus session is complete. Take a short break.',
-      icon: '/favicon.ico',
-    })
-  }
-}
-
 export default function AnalyticsPage() {
   const [logs, setLogs] = useState<HabitLog[]>([])
   const [topic, setTopic] = useState('')
   const [duration, setDuration] = useState<number | ''>('')
   const [notes, setNotes] = useState('')
   const [loading, setLoading] = useState(true)
-  const [notificationStatus, setNotificationStatus] = useState<string>('default')
   const router = useRouter()
 
-  // Timestamp-based Timer States
-  const [timerSeconds, setTimerSeconds] = useState(25 * 60)
-  const [initialTimerMinutes, setInitialTimerMinutes] = useState(25)
-  const [isRunning, setIsRunning] = useState(false)
-  const [targetEndTime, setTargetEndTime] = useState<number | null>(null)
-  const [timerTopic, setTimerTopic] = useState('')
-  const [sessionCompletedAlert, setSessionCompletedAlert] = useState(false)
+  // Use Global Persistent Timer Context
+  const {
+    timerSeconds,
+    initialTimerMinutes,
+    isRunning,
+    timerTopic,
+    setTimerTopic,
+    sessionCompletedAlert,
+    setSessionCompletedAlert,
+    notificationStatus,
+    startPresetTimer,
+    toggleTimer,
+    resetTimer,
+    requestNotificationPermission,
+    formatTime,
+  } = useTimer()
 
   useEffect(() => {
     fetchLogs()
-    if (typeof window !== 'undefined' && 'Notification' in window) {
-      setNotificationStatus(Notification.permission)
-    }
   }, [])
-
-  // Accurate countdown using timestamp difference & Tab Title Sync
-  useEffect(() => {
-    if (!isRunning || !targetEndTime) {
-      if (!sessionCompletedAlert) {
-        document.title = 'Habit Analytics & Timer | notetoself'
-      }
-      return
-    }
-
-    const interval = setInterval(() => {
-      const remaining = Math.max(0, Math.ceil((targetEndTime - Date.now()) / 1000))
-      setTimerSeconds(remaining)
-
-      // Update Browser Tab Title
-      const mins = Math.floor(remaining / 60)
-      const secs = remaining % 60
-      document.title = `(${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}) Focus Timer | notetoself`
-
-      if (remaining <= 0) {
-        clearInterval(interval)
-        setIsRunning(false)
-        setTargetEndTime(null)
-        setSessionCompletedAlert(true)
-        document.title = '⏰ (0:00) Focus Complete! | notetoself'
-        playFocusChime()
-        sendDesktopNotification(timerTopic)
-      }
-    }, 500)
-
-    return () => clearInterval(interval)
-  }, [isRunning, targetEndTime, timerTopic, sessionCompletedAlert])
-
-  const requestNotificationPermission = async () => {
-    if (typeof window !== 'undefined' && 'Notification' in window) {
-      const permission = await Notification.requestPermission()
-      setNotificationStatus(permission)
-    }
-  }
-
-  const startPresetTimer = (minutes: number) => {
-    setIsRunning(false)
-    setTargetEndTime(null)
-    setInitialTimerMinutes(minutes)
-    setTimerSeconds(minutes * 60)
-    setSessionCompletedAlert(false)
-  }
-
-  const toggleTimer = () => {
-    if (!isRunning) {
-      // Auto-prompt for notifications if not yet requested
-      if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'default') {
-        Notification.requestPermission().then((perm) => setNotificationStatus(perm))
-      }
-
-      setTargetEndTime(Date.now() + timerSeconds * 1000)
-      setIsRunning(true)
-      setSessionCompletedAlert(false)
-    } else {
-      setIsRunning(false)
-      setTargetEndTime(null)
-    }
-  }
-
-  const resetTimer = () => {
-    setIsRunning(false)
-    setTargetEndTime(null)
-    setTimerSeconds(initialTimerMinutes * 60)
-    setSessionCompletedAlert(false)
-    document.title = 'Habit Analytics & Timer | notetoself'
-  }
 
   const handleSaveTimerSession = async () => {
     if (!timerTopic.trim()) {
@@ -252,13 +140,6 @@ export default function AnalyticsPage() {
     if (!error) {
       setLogs(logs.filter((l) => l.id !== id))
     }
-  }
-
-  // Formatting helper for time display (MM:SS)
-  const formatTime = (seconds: number) => {
-    const mins = Math.floor(seconds / 60)
-    const secs = seconds % 60
-    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`
   }
 
   // Analytics Metrics
