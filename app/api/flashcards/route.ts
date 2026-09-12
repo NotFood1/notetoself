@@ -5,6 +5,9 @@ const groq = new Groq({
   apiKey: process.env.GROQ_API_KEY,
 })
 
+const MAX_FLASHCARD_NOTE_CHARS = 3000
+const MAX_FLASHCARD_TOKENS = 1000
+
 export async function POST(req: Request) {
   try {
     const { title, category, notes } = await req.json()
@@ -13,12 +16,19 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Title or notes are required' }, { status: 400 })
     }
 
+    // Token Protection: Truncate notes if user pasted an entire textbook chapter
+    const safeNotes = notes
+      ? notes.length > MAX_FLASHCARD_NOTE_CHARS
+        ? `${notes.slice(0, MAX_FLASHCARD_NOTE_CHARS)}... [truncated]`
+        : notes
+      : ''
+
     const prompt = `You are an expert exam strategist who specializes in targeted active recall.
 Based on the following study material, generate 5 HIGH-YIELD flashcards targeting the concepts that students struggle with most or get tricked on during exams:
 
 Title: ${title || 'Study Topic'}
 Category: ${category || 'General'}
-Notes/Summary: ${notes || 'No detailed notes provided. Generate foundational high-yield active recall questions on the title topic.'}
+Notes/Summary: ${safeNotes || 'No detailed notes provided. Generate foundational high-yield active recall questions on the title topic.'}
 
 Requirements:
 - Target tricky distinctions, core mechanisms, and common misconceptions.
@@ -36,6 +46,7 @@ Example:
       model: 'openai/gpt-oss-120b',
       messages: [{ role: 'user', content: prompt }],
       temperature: 0.2,
+      max_tokens: MAX_FLASHCARD_TOKENS,
     })
 
     const rawContent = completion.choices[0]?.message?.content?.trim() || '[]'

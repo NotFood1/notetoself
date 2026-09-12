@@ -290,7 +290,7 @@ export default function ChatPage() {
               {loadingMaterials
                 ? 'Loading study materials...'
                 : materials.length > 0
-                ? `Active Context: ${materials.length} material${materials.length > 1 ? 's' : ''} loaded`
+                ? `Active Context: ${Math.min(materials.length, 10)} material${materials.length > 1 ? 's' : ''} loaded ${materials.length > 10 ? '(Top 10 token-optimized)' : ''}`
                 : 'No materials saved (Add notes in Materials Hub for personalized weakness tracking)'}
             </span>
           </div>
